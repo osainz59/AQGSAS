@@ -9,6 +9,9 @@ from transformers import pipeline
 
 import torch
 
+# Some parameters
+SCORE_THRESHOLD = .6        # [0., 1.] The minimum value for an aceptable question
+
 
 tagger = SequenceTagger.load('ner-ontonotes')
 qg = QuestionGenerator('pretrained_models/qg_model.bin')
@@ -79,7 +82,10 @@ def generate_questions():
         #sentence = Sentence(text.replace(',','').replace('-','').replace('(','').replace(')', '').replace('\n', ' '))
         sentence = Sentence(text)
         tagger.predict(sentence)
-        entities = list(set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities']))
+        entities = set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities'])
+
+        if len(entities) == 0:
+            return json.dumps([])
 
         # Third, we generate the posible text-answer candidates
         candidates = [
@@ -109,17 +115,18 @@ def generate_questions():
             session['questions'] = []
 
         for idx, (question, answer, score) in enumerate(zip(questions, answers, scores)):
-            response.append({
-                'question': question,
-                'answer': answer,
-                'score': score,
-                'id': idx
-            })
-            session['questions'].append({
-                'question': question,
-                'answer': answer,
-                'score': score
-            })
+            if score > SCORE_THRESHOLD:
+                response.append({
+                    'question': question,
+                    'answer': answer,
+                    'score': score,
+                    'id': idx
+                })
+                session['questions'].append({
+                    'question': question,
+                    'answer': answer,
+                    'score': score
+                })
 
 
         return json.dumps(response)
