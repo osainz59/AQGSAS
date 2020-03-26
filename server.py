@@ -106,7 +106,6 @@ def generate_questions():
             return answers
 
         for ans in get_answers(questions, text):
-            print(ans)
             answers.append(remove_punct.sub("", ans['answer']))
             scores.append(ans['score'])
         
@@ -114,7 +113,8 @@ def generate_questions():
         if not 'questions' in session:
             session['questions'] = []
 
-        for idx, (question, answer, score) in enumerate(zip(questions, answers, scores)):
+        idx = 0
+        for question, answer, score in zip(questions, answers, scores):
             if score > SCORE_THRESHOLD:
                 response.append({
                     'question': question,
@@ -127,6 +127,7 @@ def generate_questions():
                     'answer': answer,
                     'score': score
                 })
+                idx += 1
 
 
         return json.dumps(response)
