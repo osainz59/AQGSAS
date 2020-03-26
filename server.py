@@ -19,7 +19,7 @@ document_embeddings = DocumentPoolEmbeddings([WordEmbeddings('glove'),
                                               FlairEmbeddings('news-backward'),
                                               FlairEmbeddings('news-forward')])
 
-remove_punct = re.compile(r"[,\.\'\"\-:?¿!¡;]")
+remove_punct = re.compile(r"[,\.\'\":?¿!¡;]")
 
 
 def answer_similarity(ans1, real):
@@ -47,6 +47,9 @@ def correct_answers():
     if request.method == 'POST':
         idx = request.get_json()['id']
         answer = request.get_json()['answer']
+        
+        if answer == "":
+            return Response("{'a': 'b'}", status=204, mimetype='application/json')
 
         correct_answer = session['questions'][idx]['answer']
         correct_answer_confidence = session['questions'][idx]['score']
@@ -70,10 +73,11 @@ def generate_questions():
         session.clear()
 
         # Get the text
-        text = request.get_json()['text']
+        text = request.get_json()['text'].replace('\n', ' ')
 
         # Extract the Named Entities
-        sentence = Sentence(text.replace(',','').replace('-','').replace('(','').replace(')', '').replace('\n', ' '))
+        #sentence = Sentence(text.replace(',','').replace('-','').replace('(','').replace(')', '').replace('\n', ' '))
+        sentence = Sentence(text)
         tagger.predict(sentence)
         entities = list(set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities']))
 
@@ -83,11 +87,20 @@ def generate_questions():
         ]
 
         # Finally we extract our questions
-        questions = qg.generate_questions_from_text(candidates)
+        questions = set(qg.generate_questions_from_text(candidates))
 
         # Generate new answers for the questions
         answers, scores = [], []
-        for ans in qa([{'question': question,'context': text} for question in questions]):
+        def get_answers(questions, text):
+            """ Support function to get always a list as a result
+            """
+            answers = qa([{'question': question,'context': text} for question in questions])
+            if isinstance(answers, dict):
+                answers = [answers]
+            return answers
+
+        for ans in get_answers(questions, text):
+            print(ans)
             answers.append(remove_punct.sub("", ans['answer']))
             scores.append(ans['score'])
         
