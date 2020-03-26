@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>AutoQG&AS</title>
+
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+	<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+
+	<style>
+		.animated {
+			-webkit-transition: height 0.2s;
+			-moz-transition: height 0.2s;
+			transition: height 0.2s;
+		}
+
+		textarea[extensible]{
+			overflow: auto;
+		}
+
+	</style>
+
+	<script type="text/javascript">
+
+		function create_question_cards(response) {
+			question_cards_html = ""
+			for (var i in response) {
+
+				if (response[i]['score'] < 0.33){
+					score_color = 'badge-danger';
+				} else if (response[i]['score'] < 0.66){
+					score_color = 'badge-warning';
+				} else {
+					score_color = 'badge-success';
+				}
+				question_cards_html += `
+				<div class="card" id="q`+ response[i]['id'] +`">
+					<div class="card-body" id="card-q`+ response[i]['id'] +`">
+						<h5 class="card-title">` + response[i]['question'] + `</h5>
+						<div class="input-group mb-3" id="input-`+ response[i]['id'] +`">
+							<div class="input-group-prepend">
+								<button class="btn btn-outline-secondary" type="button" onclick="correct_answers(` + response[i]['id'] + `)">Submit</button>
+							</div>
+							<input id="answer`+ response[i]['id'] +`" type="text" class="form-control" placeholder="Answer" aria-label="Answer" aria-describedby="button-answer">
+						</div>
+					</div>
+				</div>
+				<br>
+				`;
+			}
+			
+
+			document.getElementById("result").innerHTML = question_cards_html
+			document.getElementById("emaitzen_div").style.visibility = "visible"
+
+		}
+
+		function show_answer(id, response, answer) {
+
+			if (response['score'] < 0.33){
+				score_color = 'badge-danger';
+			} else if (response['score'] < 0.66){
+				score_color = 'badge-warning';
+			} else {
+				score_color = 'badge-success';
+			}
+
+			if (response['correct_answer_confidence'] < 0.33){
+				confidence_color = 'badge-danger';
+			} else if (response['correct_answer_confidence'] < 0.66){
+				confidence_color = 'badge-warning';
+			} else {
+				confidence_color = 'badge-success';
+			}
+
+			// Remove the input form
+			form = document.getElementById('input-'+id);
+			form.parentNode.removeChild(form);
+
+			card = document.getElementById("card-q"+id);
+			card.innerHTML += `
+						<h6 class="card-subtitle mb-2 text-muted">Submitted answer similarity: <span class="badge badge-pill `+ score_color +`">`+ Number(response['score']).toFixed(3) +`</span></h6>
+						<p class="card-text">`+ answer +`</p>
+						<h6 class="card-subtitle mb-2 text-muted">Correct answer confidence: <span class="badge badge-pill `+ confidence_color +`">`+ Number(response['correct_answer_confidence']).toFixed(3) +`</span></h6>
+						<p class="card-text">`+ response['correct_answer'] +`</p>
+			`;
+
+			// 
+		}
+
+		function correct_answers(id) {
+
+			answer = document.getElementById("answer"+id).value
+			
+			params = {
+				id: id,
+				answer: answer
+			}
+
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+			      	response = JSON.parse(this.responseText);
+			      	show_answer(id, response, answer);
+			    }
+				
+			}
+
+			xhttp.open("POST", "correct_answers", true);
+			xhttp.setRequestHeader("Content-type", "application/json");
+			xhttp.send(JSON.stringify(params))
+		}
+		
+		function generate_questions() {
+			document.getElementById("loading_spinner").style.visibility = "visible";
+
+			params = {
+				text: document.getElementById("text").value
+			}
+
+			var xhttp = new XMLHttpRequest();
+			xhttp.onreadystatechange = function() {
+				if ( this.readyState == 1 )
+					document.getElementById("loading_spinner").style.visibility = "visible" ;
+				if (this.readyState == 4 && this.status == 200) {
+			      	response = JSON.parse(this.responseText);
+					console.log(response)
+			      	create_question_cards(response);
+					document.getElementById("loading_spinner").style.visibility = "hidden";
+			    }
+				
+			}
+
+			xhttp.open("POST", "generate_questions", true);
+			xhttp.setRequestHeader("Content-type", "application/json");
+			xhttp.send(JSON.stringify(params))
+		}
+
+	</script>
+</head>
+<body>
+	
+	<div class="container">
+
+		<br>
+		<br>
+
+		<div class="jumbotron">
+			<h2 class="display-6">Automatic Question Generation and Short Answer Scoring System</h2>
+			<p class="lead">This is a demo for a prototype of question generation and answer scoring pipeline. The system is intended to be used in <b>news</b> domain. 
+			The complete system is built on top of Deep Learning based NLP tools, showing their actual strength on the field.</p>
+			<hr class="my-4">
+			<p>This project is powered by: <img src="https://github.com/flairNLP/flair/raw/master/resources/docs/flair_logo_2020.png" alt="alt text" style="width:3%;"> (FlairNLP), Transformers (<g-emoji class="g-emoji" alias="hugs" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f917.png">🤗</g-emoji>Huggingface) and UniLM (Microsoft).</p>
+		</div>
+
+		<div class="input-group">
+		  <div class="input-group-prepend">
+		    <span class="input-group-text">Paragraph:</span>
+		  </div>
+		  <textarea extensible class="form-control animated" aria-label="With textarea" id="text"></textarea>
+		</div>
+
+		<br>
+
+		<button type="button" class="btn btn-info" onclick="generate_questions()">
+			<span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true" id="loading_spinner"></span>
+			Generate questions
+		</button>
+
+		<br>
+		<br>
+
+		<div id="emaitzen_div">
+			<div class="container">
+				<div id="result"></div>
+			</div>
+			<br>
+			
+		</div>
+
+	</div>
+	<script type="text/javascript">
+		document.getElementById("loading_spinner").style.visibility = "hidden";
+
+		var textarea = document.querySelector('textarea');
+
+		textarea.addEventListener('keydown', autosize);
+		             
+		function autosize(){
+		  var el = this;
+		  setTimeout(function(){
+		    el.style.cssText = 'height:auto; padding:0';
+		    // for box-sizing other than "content-box" use:
+		    // el.style.cssText = '-moz-box-sizing:content-box';
+		    el.style.cssText = 'height:' + el.scrollHeight + 'px';
+		  },0);
+		}
+	</script>
+</body>
+</html>
