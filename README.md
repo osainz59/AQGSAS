@@ -1,5 +1,4 @@
-# AQGSAS
-### Automatic Question Generation and Short Answer Scoring system
+# Automatic Question Generation and Short Answer Scoring system
 
 ![Image of application design](img/application_design.png)
 
@@ -23,3 +22,10 @@ $ flask run --host=YOUR_LOCAL_IP --port=PORT
 $env:FLASK_APP = "server.py"
 flask run --host=YOUR_LOCAL_IP --port=PORT
 ```
+
+## Credits
+
+This application is powered by the following resources:
+* Transformers (🤗 [Huggingface](https://github.com/huggingface/transformers))
+* Flair ([FlairNLP](https://github.com/flairNLP/flair))
+* UniLM ([Microsoft](https://github.com/microsoft/unilm))
