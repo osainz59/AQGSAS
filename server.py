@@ -11,6 +11,7 @@ import torch
 
 # Some parameters
 SCORE_THRESHOLD = .6        # [0., 1.] The minimum value for an aceptable question
+WINDOW_LENGTH = 128         # Character window length
 
 
 tagger = SequenceTagger.load('ner-ontonotes')
@@ -82,30 +83,48 @@ def generate_questions():
         #sentence = Sentence(text.replace(',','').replace('-','').replace('(','').replace(')', '').replace('\n', ' '))
         sentence = Sentence(text)
         tagger.predict(sentence)
-        entities = set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities'])
+        entities, ent_pos = [], []
+        for ent in sentence.to_dict(tag_type='ner')['entities']:
+            entities.append(ent['text'])
+            ent_pos.append((ent['start_pos'], ent['end_pos']))
+        #entities = set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities'])
+
+        text_fragments = [
+            text[max(0, start_pos-WINDOW_LENGTH):end_pos+WINDOW_LENGTH] for start_pos, end_pos in ent_pos
+        ]
 
         if len(entities) == 0:
             return json.dumps([])
 
         # Third, we generate the posible text-answer candidates
         candidates = [
-            text + ' [SEP]' + entity for entity in entities
+            tf + ' [SEP]' + entity for entity, tf in zip(entities, text_fragments)
         ]
 
+        def remove_repeated(questions):
+            q, idx = set(), []
+            for i, question in enumerate(questions):
+                if question not in q:
+                    q.add(question)
+                    idx.append(i)
+
+            return q, idx
+
         # Finally we extract our questions
-        questions = set(qg.generate_questions_from_text(candidates))
+        questions, tf_ids = remove_repeated(qg.generate_questions_from_text(candidates))
+        text_fragments = [text_fragments[i] for i in tf_ids]
 
         # Generate new answers for the questions
         answers, scores = [], []
         def get_answers(questions, text):
             """ Support function to get always a list as a result
             """
-            answers = qa([{'question': question,'context': text} for question in questions])
+            answers = qa([{'question': question,'context': tf} for question, tf in zip(questions, text)])
             if isinstance(answers, dict):
                 answers = [answers]
             return answers
 
-        for ans in get_answers(questions, text):
+        for ans in get_answers(questions, text_fragments):
             answers.append(remove_punct.sub("", ans['answer']).strip(', '))
             scores.append(ans['score'])
         
