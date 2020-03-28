@@ -22,7 +22,7 @@ document_embeddings = DocumentPoolEmbeddings([WordEmbeddings('glove'),
                                               FlairEmbeddings('news-backward'),
                                               FlairEmbeddings('news-forward')])
 
-remove_punct = re.compile(r"[,\.\'\":?¿!¡;]")
+remove_punct = re.compile(r"[\(\)\'\":?¿!¡;]")
 
 
 def answer_similarity(ans1, real):
@@ -106,7 +106,7 @@ def generate_questions():
             return answers
 
         for ans in get_answers(questions, text):
-            answers.append(remove_punct.sub("", ans['answer']))
+            answers.append(remove_punct.sub("", ans['answer']).strip(', '))
             scores.append(ans['score'])
         
         response = []

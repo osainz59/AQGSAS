@@ -1,0 +1,6 @@
+flask
+flair
+transformers
+torch
+numpy
+tqdm
