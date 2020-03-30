@@ -12,10 +12,11 @@ import torch
 # Some parameters
 SCORE_THRESHOLD = .6        # [0., 1.] The minimum value for an aceptable question
 WINDOW_LENGTH = 128         # Character window length
+QG_BEAM_SIZE = 3            # Beam-size used on question generation decoder
 
 
 tagger = SequenceTagger.load('ner-ontonotes')
-qg = QuestionGenerator('pretrained_models/qg_model.bin')
+qg = QuestionGenerator('pretrained_models/qg_model.bin', beam_size=QG_BEAM_SIZE)
 qa = pipeline('question-answering')
 
 # initialize the document embeddings, mode = mean
