@@ -3,8 +3,8 @@ import json
 import re
 
 from flair.embeddings import WordEmbeddings, FlairEmbeddings, DocumentPoolEmbeddings, Sentence
-from flair.models import SequenceTagger
 from .biunilm.question_generator import QuestionGenerator
+from .vocabulary import Vocabulary
 from transformers import pipeline
 
 import torch
@@ -14,8 +14,9 @@ SCORE_THRESHOLD = .6        # [0., 1.] The minimum value for an aceptable questi
 WINDOW_LENGTH = 128         # Character window length
 QG_BEAM_SIZE = 3            # Beam-size used on question generation decoder
 
-
-tagger = SequenceTagger.load('ner-ontonotes')
+# 
+# tagger = SequenceTagger.load('ner-ontonotes')
+ne = Vocabulary.from_vocab_file('vocabularies/biology.vocab').compile()
 qg = QuestionGenerator('pretrained_models/qg_model.bin', beam_size=QG_BEAM_SIZE)
 qa = pipeline('question-answering')
 
@@ -39,6 +40,8 @@ def answer_similarity(ans1, real):
 
     return max(0., (emb1.T @ emb2).item())
 
+def is_a_good_question(question, answer, score):
+    return score > SCORE_THRESHOLD and 'SEP' not in question
 
 app = Flask(__name__)
 app.secret_key = "imnotsecretatall"
@@ -82,10 +85,8 @@ def generate_questions():
 
         # Extract the Named Entities
         #sentence = Sentence(text.replace(',','').replace('-','').replace('(','').replace(')', '').replace('\n', ' '))
-        sentence = Sentence(text)
-        tagger.predict(sentence)
         entities, ent_pos = [], []
-        for ent in sentence.to_dict(tag_type='ner')['entities']:
+        for ent in ne.find(text):
             entities.append(ent['text'])
             ent_pos.append((ent['start_pos'], ent['end_pos']))
         #entities = set(ent['text'] for ent in sentence.to_dict(tag_type='ner')['entities'])
@@ -135,7 +136,7 @@ def generate_questions():
 
         idx = 0
         for question, answer, score in zip(questions, answers, scores):
-            if score > SCORE_THRESHOLD:
+            if is_a_good_question(question, answer, score):
                 response.append({
                     'question': question,
                     'answer': answer,
